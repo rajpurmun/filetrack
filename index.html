@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="ne">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>फाइल व्यवस्थापन प्रणाली | गाउँपालिका</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;500;600;700;800&family=Noto+Serif+Devanagari:wght@600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<!-- QR generate -->
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<!-- QR scan (camera) -->
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<!-- Firebase (v9 compat, easy to plug-and-play) -->
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+</head>
+<body>
+
+<div class="app-shell">
+
+  <!-- ===== SIDEBAR ===== -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-emblem" id="officeLogoWrap">
+        <img id="officeLogoImg" src="assets/nepal-emblem.svg" alt="नेपाल सरकार निशान">
+      </div>
+      <div class="brand-text">
+        <span class="brand-office" id="officeNameLabel">... गाउँपालिका</span>
+        <span class="brand-sub">फाइल व्यवस्थापन प्रणाली</span>
+      </div>
+    </div>
+
+    <nav class="nav">
+      <button class="nav-item active" data-view="dashboard">
+        <span class="nav-ico">◧</span> ड्यासबोर्ड
+      </button>
+      <button class="nav-item" data-view="issue">
+        <span class="nav-ico">⇥</span> फाइल बुझाउने / QR दिने
+      </button>
+      <button class="nav-item" data-view="scan">
+        <span class="nav-ico">▣</span> QR स्क्यान (लाने/फिर्ता)
+      </button>
+      <button class="nav-item" data-view="records">
+        <span class="nav-ico">☰</span> अभिलेख / History
+      </button>
+      <button class="nav-item" data-view="settings">
+        <span class="nav-ico">⚙</span> सेटिङ
+      </button>
+    </nav>
+
+    <div class="sidebar-foot">
+      <div class="date-chip">
+        <span class="bs-date" id="bsDateNow">-</span>
+        <span class="ad-date" id="adDateNow">-</span>
+      </div>
+      <div class="storage-note" id="backendBadge">स्थानीय भण्डारण (Demo)</div>
+    </div>
+  </aside>
+
+  <!-- ===== MAIN ===== -->
+  <main class="main">
+
+    <!-- DASHBOARD -->
+    <section class="view active" id="view-dashboard">
+      <header class="view-head">
+        <h1>ड्यासबोर्ड</h1>
+        <p>शाखागत फाइल चलिरहेको र फिर्ता भएको अवस्थाको समग्र अवलोकन</p>
+      </header>
+
+      <div class="stat-grid" id="statGrid"></div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h2>हालसालैका गतिविधि</h2>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table" id="recentTable">
+            <thead>
+              <tr>
+                <th>फाइल नं.</th><th>शीर्षक</th><th>शाखा (बाट → लाई)</th><th>बुझ्ने व्यक्ति</th><th>मिति (वि.सं.)</th><th>स्थिति</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ISSUE FILE -->
+    <section class="view" id="view-issue">
+      <header class="view-head">
+        <h1>फाइल बुझाउने र QR उत्पन्न गर्ने</h1>
+        <p>फाइल विवरण भरेर बुझाउने बित्तिकै एउटा अद्वितीय QR कोड बन्छ, जुन बुझ्नेले फाइलसँगै बोक्नुपर्छ।</p>
+      </header>
+
+      <form class="panel form-grid" id="issueForm">
+        <div class="f-field">
+          <label>कार्यालयको नाम</label>
+          <input type="text" id="f_office" readonly>
+        </div>
+        <div class="f-field">
+          <label>पठाउने शाखा (बाट) *</label>
+          <select id="f_fromBranch" required></select>
+        </div>
+        <div class="f-field">
+          <label>बुझाउने शाखा (लाई) *</label>
+          <select id="f_toBranch" required></select>
+        </div>
+        <div class="f-field">
+          <label>फाइल / कागजातको शीर्षक *</label>
+          <input type="text" id="f_title" placeholder="जस्तै: जग्गा नामसारी सिफारिस फाइल" required>
+        </div>
+        <div class="f-field">
+          <label>फाइल दर्ता नं. / प.सं.</label>
+          <input type="text" id="f_regno" placeholder="जस्तै: च.नं. १२३/०८२-८३">
+        </div>
+        <div class="f-field">
+          <label>वर्ग (Category) *</label>
+          <select id="f_category" required></select>
+        </div>
+        <div class="f-field">
+          <label>बुझ्ने व्यक्तिको नाम *</label>
+          <input type="text" id="f_carrierName" placeholder="पुरा नाम" required>
+        </div>
+        <div class="f-field">
+          <label>बुझ्ने व्यक्तिको किसिम *</label>
+          <select id="f_carrierType" required>
+            <option value="कर्मचारी">कर्मचारी</option>
+            <option value="जनप्रतिनिधि">जनप्रतिनिधि</option>
+            <option value="संघसंस्था">संघसंस्था</option>
+            <option value="सेवाग्राही">सेवाग्राही / अन्य</option>
+          </select>
+        </div>
+        <div class="f-field">
+          <label>सम्पर्क नं.</label>
+          <input type="text" id="f_carrierContact" placeholder="98XXXXXXXX">
+        </div>
+        <div class="f-field">
+          <label>फाइल बुझाउने कर्मचारी (Handover गर्ने)</label>
+          <input type="text" id="f_handedBy" placeholder="शाखाबाट फाइल दिने कर्मचारीको नाम">
+        </div>
+        <div class="f-field">
+          <label>फिर्ता बुझाउने अन्तिम मिति (अपेक्षित)</label>
+          <input type="date" id="f_dueDate">
+        </div>
+        <div class="f-field span-2">
+          <label>कैफियत</label>
+          <textarea id="f_remark" rows="2" placeholder="थप विवरण भए यहाँ लेख्नुहोस्"></textarea>
+        </div>
+
+        <div class="f-field span-2 photo-field">
+          <label>📷 फाइलको फ्रन्ट पेज फोटो <span class="tag-reco">सिफारिस — फिर्ता हुँदा स्वतः चिन्नका लागि</span></label>
+          <input type="file" id="f_frontPhoto" accept="image/*" capture="environment">
+          <p class="muted">यो फोटो खिचेमा, फिर्ता गर्दा QR नभए पनि मोबाइलबाट फेरि सोही फ्रन्ट पेज खिचेर प्रणालीले स्वतः फाइल पत्ता लगाउन सक्छ।</p>
+          <div class="photo-preview hidden" id="frontPhotoPreview"><img id="frontPhotoImg" alt="फ्रन्ट पेज पूर्वावलोकन"></div>
+        </div>
+
+        <div class="f-actions span-2">
+          <button type="submit" class="btn btn-primary">फाइल दर्ता गरी QR बनाउने</button>
+          <button type="reset" class="btn btn-ghost">खाली गर्ने</button>
+        </div>
+      </form>
+
+      <div class="panel qr-result hidden" id="qrResultPanel">
+        <div class="panel-head"><h2>QR कोड तयार भयो</h2></div>
+        <div class="qr-result-body">
+          <div class="qr-card" id="qrCardPrint">
+            <div class="qr-card-top">
+              <img src="assets/nepal-emblem.svg" class="qr-card-emblem" alt="">
+              <div>
+                <div class="qr-card-office" id="qrOffice">-</div>
+                <div class="qr-card-title">फाइल ट्र्याकिङ पर्ची</div>
+              </div>
+            </div>
+            <canvas id="qrCanvas"></canvas>
+            <div class="qr-card-meta" id="qrMeta"></div>
+          </div>
+          <div class="qr-actions">
+            <button class="btn btn-primary" id="btnPrintQr">प्रिन्ट / डाउनलोड</button>
+            <button class="btn btn-ghost" id="btnNewIssue">नयाँ फाइल बुझाउने</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SCAN -->
+    <section class="view" id="view-scan">
+      <header class="view-head">
+        <h1>QR स्क्यान गर्ने</h1>
+        <p>फाइल लाँदा वा फिर्ता ल्याउँदा QR स्क्यान गरेर स्वतः लग राख्नुहोस्।</p>
+      </header>
+
+      <div class="panel mobile-promo">
+        <div class="mobile-promo-text">
+          <h2>📱 मोबाइलबाट स्क्यान गर्ने</h2>
+          <p>शाखामा गएर फाइल बुझ्दा/फिर्ता गर्दा मोबाइल फोनबाट सिधै स्क्यान गर्न यो लिङ्क खोल्नुहोस्, वा छेउको QR मोबाइलको क्यामेराले स्क्यान गर्नुहोस्।</p>
+          <a href="scan.html" target="_blank" class="btn btn-primary">मोबाइल स्क्यान पृष्ठ खोल्ने ↗</a>
+          <p class="muted" style="margin-top:8px;">⚠️ धेरै यन्त्र/शाखाबाट एउटै अभिलेख हेर्न चाहनुहुन्छ भने <b>Firebase</b> जडान अनिवार्य छ (Settings मा नोट हेर्नुहोस्) — नत्र प्रत्येक यन्त्रको आ-आफ्नै स्थानीय डेटा हुन्छ।</p>
+        </div>
+        <div class="mobile-promo-qr">
+          <canvas id="mobileLinkQr"></canvas>
+          <span>यो QR स्क्यान गरी मोबाइलमा खोल्नुहोस्</span>
+        </div>
+      </div>
+
+      <div class="panel scan-panel">
+        <div class="scan-mode-toggle">
+          <button class="chip active" data-mode="taken">फाइल लगेको (Taken)</button>
+          <button class="chip" data-mode="returned">फाइल फिर्ता (Returned)</button>
+        </div>
+        <div id="qr-reader" class="qr-reader-box"></div>
+        <div class="scan-manual">
+          <label>वा फाइल ID म्यानुअल रूपमा लेख्नुहोस्</label>
+          <div class="manual-row">
+            <input type="text" id="manualFileId" placeholder="जस्तै: FTS-2083-0001">
+            <button class="btn btn-primary" id="btnManualScan">पुष्टि गर्ने</button>
+          </div>
+        </div>
+        <div class="scan-feedback" id="scanFeedback"></div>
+      </div>
+    </section>
+
+    <!-- RECORDS -->
+    <section class="view" id="view-records">
+      <header class="view-head">
+        <h1>अभिलेख / History</h1>
+        <p>सबै फाइल आवागमनको पूर्ण अभिलेख — शाखा, वर्ग, मिति र व्यक्ति अनुसार फिल्टर गर्न मिल्ने।</p>
+      </header>
+
+      <div class="panel">
+        <div class="filters">
+          <select id="filterBranch"><option value="">सबै शाखा</option></select>
+          <select id="filterCategory"><option value="">सबै वर्ग</option></select>
+          <select id="filterStatus">
+            <option value="">सबै स्थिति</option>
+            <option value="issued">बुझाइएको</option>
+            <option value="taken">लगेको</option>
+            <option value="returned">फिर्ता भएको</option>
+          </select>
+          <input type="text" id="filterSearch" placeholder="शीर्षक / नाम / फाइल ID खोज्नुहोस्">
+          <button class="btn btn-ghost" id="btnExportCsv">CSV निकाल्ने</button>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table" id="recordsTable">
+            <thead>
+              <tr>
+                <th>फाइल ID</th><th>शीर्षक</th><th>वर्ग</th><th>शाखा (बाट→लाई)</th>
+                <th>बुझ्ने</th><th>किसिम</th><th>बुझाउने कर्मचारी</th>
+                <th>दिएको मिति</th><th>लगेको मिति</th><th>फिर्ता मिति</th><th>स्थिति</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- SETTINGS -->
+    <section class="view" id="view-settings">
+      <header class="view-head">
+        <h1>सेटिङ</h1>
+        <p>कार्यालय, शाखा, वर्ग र ब्याकअप/Firebase सम्बन्धी व्यवस्थापन</p>
+      </header>
+
+      <div class="settings-grid">
+
+        <div class="panel">
+          <div class="panel-head"><h2>कार्यालय विवरण</h2></div>
+          <div class="f-field">
+            <label>कार्यालयको पुरा नाम</label>
+            <input type="text" id="s_officeName" placeholder="जस्तै: xxxx गाउँपालिका गाउँ कार्यपालिकाको कार्यालय">
+          </div>
+          <div class="f-field">
+            <label>ठेगाना (जिल्ला, प्रदेश)</label>
+            <input type="text" id="s_officeAddress" placeholder="जस्तै: ...जिल्ला, बागमती प्रदेश">
+          </div>
+          <div class="f-field">
+            <label>कार्यालयको लोगो (राखेमा निशानको सट्टा देखिनेछ)</label>
+            <input type="file" id="s_officeLogo" accept="image/*">
+          </div>
+          <button class="btn btn-primary" id="btnSaveOffice">सुरक्षित गर्ने</button>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head"><h2>शाखाहरू</h2></div>
+          <div class="list-add-row">
+            <input type="text" id="newBranchInput" placeholder="नयाँ शाखाको नाम, जस्तै: प्रशासन शाखा">
+            <button class="btn btn-primary" id="btnAddBranch">थप्ने</button>
+          </div>
+          <ul class="tag-list" id="branchList"></ul>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head"><h2>वर्ग (Category)</h2></div>
+          <div class="list-add-row">
+            <input type="text" id="newCategoryInput" placeholder="जस्तै: सिफारिस, बजेट, अदालत मुद्दा">
+            <button class="btn btn-primary" id="btnAddCategory">थप्ने</button>
+          </div>
+          <ul class="tag-list" id="categoryList"></ul>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head"><h2>डेटा भण्डारण (Storage / Firebase)</h2></div>
+          <p class="muted">हाल यो Demo ब्राउजरको स्थानीय भण्डारण (localStorage) प्रयोग गर्दैछ। वास्तविक प्रयोगका लागि <code>firebase-config.js</code> मा आफ्नो Firebase Project को config राखेर <code>USE_FIREBASE = true</code> गर्नुहोस्। थप विवरण README.md मा छ।</p>
+          <div class="f-field">
+            <label>ब्याकअप निकाल्ने (JSON)</label>
+            <button class="btn btn-ghost" id="btnBackupJson">पूरा डेटा डाउनलोड गर्ने</button>
+          </div>
+          <div class="f-field">
+            <label>ब्याकअप फर्काउने (JSON Import)</label>
+            <input type="file" id="s_restoreFile" accept="application/json">
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="bs-date.js"></script>
+<script src="image-match.js"></script>
+<script src="firebase-config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
