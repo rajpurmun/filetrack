@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="ne">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0b2f5c">
+<title>फास्ट-ट्र्याक | फाइल बुझाउने/फिर्ता</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@500;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="quick.css">
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+</head>
+<body class="q-body">
+
+<div class="q-shell">
+  <div class="q-topbar">
+    <button class="q-back hidden" id="qBack">◀</button>
+    <div class="q-office" id="qOffice">...</div>
+    <button class="q-logout hidden" id="qLogoutBtn">🚪</button>
+  </div>
+
+  <div id="qScreen" class="q-screen"></div>
+</div>
+
+<script src="bs-date.js"></script>
+<script src="image-match.js"></script>
+<script src="firebase-config.js"></script>
+<script src="quick.js"></script>
+</body>
+</html>
